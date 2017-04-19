@@ -44,6 +44,11 @@ typedef struct{
   char padding[BLOCK_SIZE-259*sizeof(unsigned int)-256];  //Padding field to fill a block
 }inode;
 
+typedef struct{
+  int position;
+  int opened;
+}inode_x;
+
 /*  TILL HERE OURS  */
 
 /*

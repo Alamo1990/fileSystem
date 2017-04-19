@@ -19,16 +19,30 @@ superblock sblock;
 char* i_map;
 char* b_map;
 inode* inodes;
+inode_x* inodes_x;
 
 /*
  * @brief 	Generates the proper file system structure in a storage device, as designed by the student.
  * @return 	0 if success, -1 otherwise.
  */
 int mkFS(long deviceSize){
-	i_map = (char*)malloc(sblock.numinodes);
-	b_map = (char*)malloc(sblock.dataBlockNum);
-	inodes = (inode*)malloc(sblock.numinodes);
-	return -1;
+
+	int fd = open(DEVICE_IMAGE, O_RDONLY);
+	int size = lseek(fd, 0L, SEEK_END);
+	if(deviceSize > size) return -1;//REVIEW
+
+	sblock.magicNum = 1234;//REVIEW: check values
+	sblock.numinodes = 50;//REVIEW: check values
+	sblock.deviceSize = deviceSize;
+
+	i_map = (char*)calloc(sblock.numinodes, sizeof(char));
+	b_map = (char*)calloc(sblock.dataBlockNum, sizeof(char));
+	inodes = (inode*)calloc(sblock.numinodes, sizeof(inode));
+	inodes_x = (inode_x*)calloc(sblock.numinodes, sizeof(inode_x));
+
+	unmountFS();
+
+	return 0;
 }
 
 /*
@@ -47,7 +61,7 @@ int mountFS(void){
 	for(int i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
 		bread(DEVICE_IMAGE, i+sblock.firstInode, (char*)inodes + i*BLOCK_SIZE);
 
-	return 1;
+	return 0;
 }
 
 /*
@@ -55,7 +69,15 @@ int mountFS(void){
  * @return 	0 if success, -1 otherwise.
  */
 int unmountFS(void){
-	return -1;
+
+	for(int i=0; i<sblock.numinodes; i++){
+		if(inodes_x[i].opened == 1)
+			return -1;
+	}
+
+	//sync();REVIEW
+
+	return 0;
 }
 
 /*
