@@ -37,7 +37,8 @@ int mkFS(long deviceSize){
 	sblock.firstInode = 2;//REVIEW: check values
 	sblock.firstDataBlock = 52;//REVIEW: check values
 	sblock.inodeMapNumBlocks = 50;//REVIEW: check values
-	sblock.dataMapNumBlock = 974;//REVIEW: check values
+	sblock.dataBlockNum = 100;//REVIEW: check values
+	sblock.dataMapNumBlock = 100;//REVIEW: check values
 	sblock.deviceSize = deviceSize;
 
 	i_map = (char*)calloc(sblock.numinodes, sizeof(char));
@@ -77,8 +78,8 @@ int unmountFS(void){
 
 	for(int i=0; i<sblock.numinodes; i++)//REVIEW
 		if(inodes_x[i].opened == 1)
-		//inodes_x[i].opened = 0;
-			return -1;
+		inodes_x[i].opened = 0;
+			// return -1;
 
 	// write sblock to disk
 	bwrite(DEVICE_IMAGE, 1, (char*)&sblock);
@@ -94,7 +95,8 @@ int unmountFS(void){
 	// To write the i-nodes to disk
 	for (int i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
 		bwrite(DEVICE_IMAGE, i+sblock.firstInode, (char *)inodes + i*BLOCK_SIZE);
-	return 1;
+
+	return 0;
 }
 
 /*
@@ -104,10 +106,10 @@ int unmountFS(void){
 int createFile(char *fileName){
 	int b_id, inode_id;
 
-	if(namei(fileName)>0){printf("file already exists\n"); return -1;}//File already exists
+	if(namei(fileName)>0) return -1;//File already exists
 
 	inode_id = ialloc();
-	if(inode_id<0) {printf("cannot alloc inode(%d)\n", inode_id);return -2;}
+	if(inode_id<0) return -2;
 
 	b_id = balloc();
 	if(b_id<0){
@@ -121,8 +123,6 @@ int createFile(char *fileName){
 	inodes[inode_id].directBlock = b_id;
 	inodes_x[inode_id].position = 0;
 	inodes_x[inode_id].opened = 1;
-
-	printf("file ceated corrctly\n");
 
 	return 0;
 }
@@ -247,9 +247,7 @@ int checkFile(char *fileName){
 *@return  the number of the inode alloc'd or -1 in case there is no free inodes
 */
 int ialloc(void){
-	printf("numinodes: %d\n", sblock.numinodes);
 	for(int i=0; i<sblock.numinodes; i++){
-		printf("try to alloc %d, result: %d\n",i, i_map[i] );
 		if(i_map[i] == 0){
 			i_map[i] = 1;
 			memset(&(inodes[i]), 0, sizeof(inode));
@@ -265,7 +263,7 @@ int ialloc(void){
 */
 int balloc(void){
 	char b[BLOCK_SIZE];
-
+	
 	for(int i=0; i<sblock.dataBlockNum; i++){
 		if(b_map[i] == 0){
 			b_map[i] = 1;
