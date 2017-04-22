@@ -117,7 +117,7 @@ int removeFile(char *fileName){
 	inode_id = namei(fileName);
 	if(inode_id<0) return -1;
 
-	free(inodes[inode_id].directBlock);
+	bfree(inodes[inode_id].directBlock);
 	memset(&(inodes[inode_id]), 0, sizeof(inode));
 	ifree(inode_id);
 
@@ -238,7 +238,7 @@ int balloc(void){
 	char b[BLOCK_SIZE];
 
 	for(int i=0; i<sblock.dataBlockNum; i++){
-		if(bmap[i] == 0){
+		if(b_map[i] == 0){
 			b_map[i] = 1;
 			memset(b, 0, BLOCK_SIZE);
 			bwrite(DEVICE_IMAGE, i+sblock.firstDataBlock, b);
