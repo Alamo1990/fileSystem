@@ -32,7 +32,7 @@ int mkFS(long deviceSize){
 	int size = lseek(fd, 0L, SEEK_END);
 	if(deviceSize > size) return -1;//REVIEW
 
-	sblock.magicNum = 1234;//REVIEW: check values
+	sblock.magicNum = 714916;//REVIEW: check values
 	sblock.numinodes = 50;//REVIEW: check values
 	sblock.firstInode = 2;//REVIEW: check values
 	sblock.firstDataBlock = 52;//REVIEW: check values
@@ -77,9 +77,7 @@ int mountFS(void){
 int unmountFS(void){
 
 	for(int i=0; i<sblock.numinodes; i++)//REVIEW
-		if(inodes_x[i].opened == 1)
-		inodes_x[i].opened = 0;
-			// return -1;
+		if(inodes_x[i].opened == 1) return -1;
 
 	// write sblock to disk
 	bwrite(DEVICE_IMAGE, 1, (char*)&sblock);
@@ -129,7 +127,7 @@ int createFile(char *fileName){
 
 /*
  * @brief	Deletes a file, provided it exists in the file system.
- * @return	0 if success, -1 if the file does not exist, -2 in case of error..
+ * @return	0 if success, -1 if the file does not exist, -2 in case of error.
  */
 int removeFile(char *fileName){
 	int inode_id;
@@ -137,11 +135,11 @@ int removeFile(char *fileName){
 	inode_id = namei(fileName);
 	if(inode_id<0) return -1;
 
-	bfree(inodes[inode_id].directBlock);
+	if(bfree(inodes[inode_id].directBlock)<0) return -2;
 	memset(&(inodes[inode_id]), 0, sizeof(inode));
-	ifree(inode_id);
+	if(ifree(inode_id)<0) return -2;
 
-	return -2;
+	return 0;
 }
 
 /*
@@ -165,8 +163,7 @@ int openFile(char *fileName){
  * @return	0 if success, -1 otherwise.
  */
 int closeFile(int fileDescriptor){
-	if(fileDescriptor<0)
-		return -1;
+	if(fileDescriptor<0) return -1;
 
 	inodes_x[fileDescriptor].position = 0;
 	inodes_x[fileDescriptor].opened = 0;
@@ -188,6 +185,7 @@ int readFile(int fileDescriptor, void *buffer, int numBytes){
 
 	b_id = bmap(fileDescriptor, inodes_x[fileDescriptor].position);
 	bread(DEVICE_IMAGE, b_id, b);
+	printf("inread %s\n", b);
 	memmove(buffer, b+inodes_x[fileDescriptor].position, numBytes);
 	inodes_x[fileDescriptor].position += numBytes;
 
@@ -210,6 +208,7 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes){
 	bread(DEVICE_IMAGE, b_id, b);
 	memmove(b+inodes_x[fileDescriptor].position, buffer, numBytes);
 	bwrite(DEVICE_IMAGE, b_id, b);
+	printf("in write %s\n", b);
 	inodes_x[fileDescriptor].position += numBytes;
 
 	return numBytes;
@@ -218,9 +217,24 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes){
 
 /*
  * @brief	Modifies the position of the seek pointer of a file.
- * @return	0 if succes, -1 otherwise.
+ * @return	0 if success, -1 otherwise.
  */
 int lseekFile(int fileDescriptor, int whence, long offset){
+	if(fileDescriptor<0) return -1;
+
+	if(whence == FS_SEEK_CUR){
+		inodes_x[fileDescriptor].position += offset;
+		return 0;
+	}
+	if(whence == FS_SEEK_BEGIN){
+		inodes_x[fileDescriptor].position = offset;
+		return 0;
+	}
+	if(whence == FS_SEEK_END){
+		inodes_x[fileDescriptor].position = BLOCK_SIZE - offset;
+		return 0;
+	}
+
 	return -1;
 }
 
@@ -263,7 +277,7 @@ int ialloc(void){
 */
 int balloc(void){
 	char b[BLOCK_SIZE];
-	
+
 	for(int i=0; i<sblock.dataBlockNum; i++){
 		if(b_map[i] == 0){
 			b_map[i] = 1;
