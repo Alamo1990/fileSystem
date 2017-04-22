@@ -111,7 +111,6 @@ int createFile(char *fileName){
 
 	b_id = balloc();
 	if(b_id<0){
-		printf("cannot alloc block(%d)\n", b_id);
 		ifree(inode_id);
 		return -2;
 	}
@@ -185,7 +184,6 @@ int readFile(int fileDescriptor, void *buffer, int numBytes){
 
 	b_id = bmap(fileDescriptor, inodes_x[fileDescriptor].position);
 	bread(DEVICE_IMAGE, b_id, b);
-	printf("inread %s\n", b);
 	memmove(buffer, b+inodes_x[fileDescriptor].position, numBytes);
 	inodes_x[fileDescriptor].position += numBytes;
 
@@ -208,8 +206,9 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes){
 	bread(DEVICE_IMAGE, b_id, b);
 	memmove(b+inodes_x[fileDescriptor].position, buffer, numBytes);
 	bwrite(DEVICE_IMAGE, b_id, b);
-	printf("in write %s\n", b);
+
 	inodes_x[fileDescriptor].position += numBytes;
+	inodes[fileDescriptor].size += numBytes;
 
 	return numBytes;
 }
@@ -231,7 +230,7 @@ int lseekFile(int fileDescriptor, int whence, long offset){
 		return 0;
 	}
 	if(whence == FS_SEEK_END){
-		inodes_x[fileDescriptor].position = BLOCK_SIZE - offset;
+		inodes_x[fileDescriptor].position = inodes[fileDescriptor].size - offset;
 		return 0;
 	}
 
