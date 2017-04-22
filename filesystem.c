@@ -34,6 +34,10 @@ int mkFS(long deviceSize){
 
 	sblock.magicNum = 1234;//REVIEW: check values
 	sblock.numinodes = 50;//REVIEW: check values
+	sblock.firstInode = 2;//REVIEW: check values
+	sblock.firstDataBlock = 52;//REVIEW: check values
+	sblock.inodeMapNumBlocks = 50;//REVIEW: check values
+	sblock.dataMapNumBlock = 974;//REVIEW: check values
 	sblock.deviceSize = deviceSize;
 
 	i_map = (char*)calloc(sblock.numinodes, sizeof(char));
@@ -52,15 +56,18 @@ int mkFS(long deviceSize){
  */
 int mountFS(void){
 	bread(DEVICE_IMAGE, 1, (char*)&sblock);
+printf("here\n");
 
 	for(int i=0; i<sblock.inodeMapNumBlocks; i++)
 		bread(DEVICE_IMAGE, 2+i, (char*)i_map + i*BLOCK_SIZE);
-
+printf("here\n");
 	for(int i=0; i<sblock.dataMapNumBlock; i++)
 		bread(DEVICE_IMAGE, 2+i+sblock.inodeMapNumBlocks, (char*)b_map + i*BLOCK_SIZE);
+printf("here\n");
 
 	for(int i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
 		bread(DEVICE_IMAGE, i+sblock.firstInode, (char*)inodes + i*BLOCK_SIZE);
+printf("here\n");
 
 	return 0;
 }
@@ -76,7 +83,7 @@ int unmountFS(void){
 			return -1;
 	}
 
-	//sync();REVIEW
+	sync();
 
 	return 0;
 }
@@ -131,7 +138,7 @@ int removeFile(char *fileName){
 int openFile(char *fileName){
 	int inode_id;
 
-	inode_id = namei(fileName);//REVIEW: find namei or replacement
+	inode_id = namei(fileName);
 	if(inode_id<0) return inode_id;
 
 	inodes_x[inode_id].position = 0;
@@ -222,6 +229,10 @@ int checkFile(char *fileName){
 
 
 /* AUXILIARY FUNCTIONS */
+/*
+*@brief  allocates an inode
+*@return  the number of the inode alloc'd or -1 in case there is no free inodes
+*/
 int ialloc(void){
 	for(int i=0; i<sblock.numinodes; i++){
 		if(i_map[i] == 0){
@@ -234,6 +245,10 @@ int ialloc(void){
 	return -1;
 }
 
+/*
+*@brief  allocates a block
+*@return  the number of the block alloc'd or -1 in case there is no free blocks
+*/
 int balloc(void){
 	char b[BLOCK_SIZE];
 
@@ -249,6 +264,10 @@ int balloc(void){
 	return -1;
 }
 
+/*
+*@brief  frees an inode
+*@return  the number of the inode free'd or -1 in case the inode does not exist
+*/
 int ifree(int inode_id){
 	if(inode_id>sblock.numinodes || inode_id<0) return -1;
 
@@ -257,6 +276,10 @@ int ifree(int inode_id){
 	return 0;
 }
 
+/*
+*@brief  frees a block
+*@return  the number of the block freed'd or -1 in case the block does not exist
+*/
 int bfree(int block_id){
 	if(block_id>sblock.dataBlockNum || block_id<0) return -1;
 
@@ -265,6 +288,10 @@ int bfree(int block_id){
 	return 0;
 }
 
+/*
+*@brief  searches for an inode by name
+*@return  the number of the inode searched or -1 in case it was not found
+*/
 int namei(char* fname){
 	for(int i=0; i<sblock.numinodes; i++){
 		if(!strcmp(inodes[i].name, fname)) return i;
@@ -272,6 +299,10 @@ int namei(char* fname){
 	return -1;
 }
 
+/*
+*@brief  gets the inode block
+*@return  the number of the clock thet is thge inodes direct block or -1 in case the inode does not extist
+*/
 int bmap(int inode_id, int offset){
 	if(inode_id>sblock.numinodes) return -1;
 
