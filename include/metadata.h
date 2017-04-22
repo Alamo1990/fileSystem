@@ -5,7 +5,7 @@
  * @brief 	Definition of the structures and data types of the file system.
  * @date	01/03/2017
  */
- 
+
  #define DIRECTORY 0
  #define FILE 1
 
@@ -26,7 +26,8 @@
    unsigned int inodesContent[256];  //type==dir.directory inode list
    unsigned int size;  //Current file size in bytes
    unsigned int directBlock; //direct block number
-   char padding[BLOCK_SIZE-259*sizeof(unsigned int)-256];  //Padding field to fill a block
+   unsigned int indirectBlock; //indirect block number
+   char padding[BLOCK_SIZE-260*sizeof(unsigned int)-256];  //Padding field to fill a block
  }inode;
 
  typedef struct{

@@ -56,18 +56,15 @@ int mkFS(long deviceSize){
  */
 int mountFS(void){
 	bread(DEVICE_IMAGE, 1, (char*)&sblock);
-printf("here\n");
 
 	for(int i=0; i<sblock.inodeMapNumBlocks; i++)
 		bread(DEVICE_IMAGE, 2+i, (char*)i_map + i*BLOCK_SIZE);
-printf("here\n");
+
 	for(int i=0; i<sblock.dataMapNumBlock; i++)
 		bread(DEVICE_IMAGE, 2+i+sblock.inodeMapNumBlocks, (char*)b_map + i*BLOCK_SIZE);
-printf("here\n");
 
 	for(int i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
 		bread(DEVICE_IMAGE, i+sblock.firstInode, (char*)inodes + i*BLOCK_SIZE);
-printf("here\n");
 
 	return 0;
 }
@@ -83,9 +80,21 @@ int unmountFS(void){
 			return -1;
 	}
 
-	sync();
+	// write sblock to disk
+	bwrite(DEVICE_IMAGE, 0, (char*)&sblock);
 
-	return 0;
+	// To write the i-node map to disk
+	for (int i=0; i<sblock.inodeMapNumBlocks; i++)
+		bwrite(DEVICE_IMAGE, 1+i, (char*)i_map + i*BLOCK_SIZE) ;
+
+	// To write the block map to disk
+	for (int i=0; i<sblock.dataMapNumBlock; i++)
+		bwrite(DEVICE_IMAGE, 1+i+sblock.inodeMapNumBlocks, (char *)b_map + i*BLOCK_SIZE);
+
+	// To write the i-nodes to disk
+	for (int i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
+		bwrite(DEVICE_IMAGE, i+sblock.firstInode, (char *)inodes + i*BLOCK_SIZE);
+	return 1;
 }
 
 /*
@@ -304,9 +313,18 @@ int namei(char* fname){
 *@return  the number of the clock thet is thge inodes direct block or -1 in case the inode does not extist
 */
 int bmap(int inode_id, int offset){
-	if(inode_id>sblock.numinodes) return -1;
+	int b[BLOCK_SIZE/4];
+	// check if inode_id is valid
+	if (inode_id > sblock.numinodes) return -1;
+	// check if the offset is in the direct block
+	if (offset < BLOCK_SIZE)return inodes[inode_id].directBlock;
 
-	if(offset<BLOCK_SIZE) return inodes[inode_id].directBlock;
+	//check if the ofset is in the indirect block
+	if (offset < BLOCK_SIZE*BLOCK_SIZE/4) {
+		bread(DEVICE_IMAGE, inodes[inode_id].indirectBlock, (char*)b);
+		offset = (offset - BLOCK_SIZE)/BLOCK_SIZE;
+		return b[offset] ;
+	}
 
 	return -1;
 }
