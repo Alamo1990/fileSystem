@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "include/filesystem.h"		// Headers for the core functionality
 #include "include/auxiliary.h"		// Headers for auxiliary functions
@@ -30,13 +31,16 @@ int mkFS(long deviceSize){
 
 	int fd = open(DEVICE_IMAGE, O_RDONLY);
 	int size = lseek(fd, 0L, SEEK_END);
+	//printf("ddddddddd%d", size);
+	if(size > 2000*50 || size < 2000*25) return -1;
 	if(deviceSize > size) return -1;//REVIEW
 
+
 	sblock.magicNum = 714916;//REVIEW: check values
-	sblock.numinodes = 50;//REVIEW: check values
+	sblock.numinodes = 64;//REVIEW: check values
 	sblock.firstInode = 2;//REVIEW: check values
-	sblock.firstDataBlock = 52;//REVIEW: check values
-	sblock.inodeMapNumBlocks = 50;//REVIEW: check values
+	sblock.firstDataBlock = 2;//REVIEW: check values
+	sblock.inodeMapNumBlocks = 48;//REVIEW: check values
 	sblock.dataBlockNum = 100;//REVIEW: check values
 	sblock.dataMapNumBlock = 100;//REVIEW: check values
 	sblock.deviceSize = deviceSize;
@@ -56,16 +60,24 @@ int mkFS(long deviceSize){
  * @return 	0 if success, -1 otherwise.
  */
 int mountFS(void){
-	bread(DEVICE_IMAGE, 1, (char*)&sblock);
-
-	for(int i=0; i<sblock.inodeMapNumBlocks; i++)
+	int error = bread(DEVICE_IMAGE, 1, (char*)&sblock);
+	if (error == -1){
+		return error;
+	}
+	int i;
+	for(i=0; i<sblock.inodeMapNumBlocks; i++)
 		bread(DEVICE_IMAGE, 2+i, (char*)i_map + i*BLOCK_SIZE);
 
-	for(int i=0; i<sblock.dataMapNumBlock; i++)
+	for(i=0; i<sblock.dataMapNumBlock; i++)
 		bread(DEVICE_IMAGE, 2+i+sblock.inodeMapNumBlocks, (char*)b_map + i*BLOCK_SIZE);
 
-	for(int i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
+	for(i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
 		bread(DEVICE_IMAGE, i+sblock.firstInode, (char*)inodes + i*BLOCK_SIZE);
+
+	unsigned char buffer[BLOCK_SIZE];
+	bread(DEVICE_IMAGE, 0, (char*)&buffer);
+
+	sblock.crc = CRC16((const unsigned char*)buffer, BLOCK_SIZE);
 
 	return 0;
 }
@@ -76,22 +88,23 @@ int mountFS(void){
  */
 int unmountFS(void){
 
-	for(int i=0; i<sblock.numinodes; i++)//REVIEW
+	int i;
+	for(i=0; i<sblock.numinodes; i++)//REVIEW
 		if(inodes_x[i].opened == 1) return -1;
 
 	// write sblock to disk
 	bwrite(DEVICE_IMAGE, 1, (char*)&sblock);
 
 	// To write the i-node map to disk
-	for (int i=0; i<sblock.inodeMapNumBlocks; i++)
+	for (i=0; i<sblock.inodeMapNumBlocks; i++)
 		bwrite(DEVICE_IMAGE, 2+i, (char*)i_map + i*BLOCK_SIZE) ;
 
 	// To write the block map to disk
-	for (int i=0; i<sblock.dataMapNumBlock; i++)
+	for (i=0; i<sblock.dataMapNumBlock; i++)
 		bwrite(DEVICE_IMAGE, 2+i+sblock.inodeMapNumBlocks, (char *)b_map + i*BLOCK_SIZE);
 
 	// To write the i-nodes to disk
-	for (int i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
+	for (i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
 		bwrite(DEVICE_IMAGE, i+sblock.firstInode, (char *)inodes + i*BLOCK_SIZE);
 
 	return 0;
@@ -121,6 +134,12 @@ int createFile(char *fileName){
 	inodes_x[inode_id].position = 0;
 	inodes_x[inode_id].opened = 1;
 
+	unsigned char buffer[inodes[inode_id].size];
+
+	readFile(inode_id, buffer, 0);
+
+	inodes[inode_id].crc = CRC16((const unsigned char*) buffer, inodes[inode_id].size);
+
 	return 0;
 }
 
@@ -149,12 +168,15 @@ int openFile(char *fileName){
 	int inode_id;
 
 	inode_id = namei(fileName);
-	if(inode_id<0) return inode_id;
+	if(inode_id==-1){
+		return inode_id;
+	} else if (inode_id>=0){
+		inodes_x[inode_id].position = 0;
+		inodes_x[inode_id].opened = 1;
 
-	inodes_x[inode_id].position = 0;
-	inodes_x[inode_id].opened = 1;
-
-	return inode_id;
+		return inode_id;
+	}
+	return -2;	
 }
 
 /*
@@ -166,6 +188,12 @@ int closeFile(int fileDescriptor){
 
 	inodes_x[fileDescriptor].position = 0;
 	inodes_x[fileDescriptor].opened = 0;
+
+	unsigned char tempBuffer[inodes[fileDescriptor].size];
+
+	readFile(fileDescriptor, tempBuffer, inodes[fileDescriptor].size);
+
+	inodes[fileDescriptor].crc = CRC16((const unsigned char*) tempBuffer, inodes[fileDescriptor].size);
 
 	return 0;
 }
@@ -243,6 +271,23 @@ int lseekFile(int fileDescriptor, int whence, long offset){
  * @return 	0 if the file system is correct, -1 if the file system is corrupted, -2 in case of error.
  */
 int checkFS(void){
+
+	uint16_t check = sblock.crc;
+	uint16_t tempcrc;
+	sblock.crc = 0;
+	unsigned char buffer[BLOCK_SIZE];
+
+	bread(DEVICE_IMAGE, 0, (char*)&buffer);
+
+	tempcrc = CRC16((const unsigned char*) buffer, BLOCK_SIZE);
+
+	if(check == tempcrc){
+		sblock.crc = tempcrc;
+		return 0;
+	} else {
+		return -1;
+	}
+
 	return -2;
 }
 
@@ -251,6 +296,30 @@ int checkFS(void){
  * @return 	0 if the file is correct, -1 if the file is corrupted, -2 in case of error.
  */
 int checkFile(char *fileName){
+
+	int fd = openFile(fileName);
+
+	if(fd<0){
+		return -2;
+	}
+
+	uint16_t check = inodes[fd].crc;
+	uint16_t tempcrc;
+	unsigned char buffer[inodes[fd].size];
+
+	if (inodes[fd].size >= 0){
+		readFile(fd, buffer, inodes[fd].size);
+	}
+
+	tempcrc = CRC16((const unsigned char*) buffer, inodes[fd].size);
+
+	if(check == tempcrc){
+		inodes[fd].crc = tempcrc;
+		return 0;
+	} else {
+		return -1;
+	}
+
 	return -2;
 }
 
@@ -261,7 +330,8 @@ int checkFile(char *fileName){
 *@return  the number of the inode alloc'd or -1 in case there is no free inodes
 */
 int ialloc(void){
-	for(int i=0; i<sblock.numinodes; i++){
+	int i;
+	for(i=0; i<sblock.numinodes; i++){
 		if(i_map[i] == 0){
 			i_map[i] = 1;
 			memset(&(inodes[i]), 0, sizeof(inode));
@@ -277,8 +347,8 @@ int ialloc(void){
 */
 int balloc(void){
 	char b[BLOCK_SIZE];
-
-	for(int i=0; i<sblock.dataBlockNum; i++){
+	int i;
+	for(i=0; i<sblock.dataBlockNum; i++){
 		if(b_map[i] == 0){
 			b_map[i] = 1;
 			memset(b, 0, BLOCK_SIZE);
@@ -319,7 +389,8 @@ int bfree(int block_id){
 *@return  the number of the inode searched or -1 in case it was not found
 */
 int namei(char* fname){
-	for(int i=0; i<sblock.numinodes; i++){
+	int i;
+	for(i=0; i<sblock.numinodes; i++){
 		if(!strcmp(inodes[i].name, fname)) return i;
 	}
 	return -1;
