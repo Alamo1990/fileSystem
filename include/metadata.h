@@ -18,6 +18,7 @@
    unsigned int dataBlockNum;  //Number of data blocks in the device
    unsigned int firstDataBlock;  //Number of the 1st data block
    unsigned int deviceSize;  //Total disk space in bytes
+   uint16_t crc;
    char padding[BLOCK_SIZE - 8*sizeof(unsigned int)];  //Padding to complete a block
  }superblock;
  typedef struct{
@@ -27,6 +28,7 @@
    unsigned int size;  //Current file size in bytes
    unsigned int directBlock; //direct block number
    unsigned int indirectBlock; //indirect block number
+   uint16_t crc;
    char padding[BLOCK_SIZE-260*sizeof(unsigned int)-256];  //Padding field to fill a block
  }inode;
 
