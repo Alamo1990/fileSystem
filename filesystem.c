@@ -92,7 +92,7 @@ int createFile(char *fileName){
 	if(inode_id<0){
 		return inode_id;
 	}
-	b_id = alloc();
+	b_id = balloc();
 	if(b_id<0){
 		ifree(inode_id);
 		return b_id;
@@ -118,7 +118,7 @@ int removeFile(char *fileName){
 	if(inode_id<0) return -1;
 
 	free(inodes[inode_id].directBlock);
-	memset(&(inodes[inode_id]), 0, sizeof(diskInodeType));
+	memset(&(inodes[inode_id]), 0, sizeof(inode));
 	ifree(inode_id);
 
 	return -2;
@@ -218,4 +218,64 @@ int checkFS(void){
  */
 int checkFile(char *fileName){
 	return -2;
+}
+
+
+/* AUXILIARY FUNCTIONS */
+int ialloc(void){
+	for(int i=0; i<sblock.numinodes; i++){
+		if(i_map[i] == 0){
+			i_map[i] = 1;
+			memset(&(inodes[i]), 0, sizeof(inode));
+
+			return i;
+		}
+	}
+	return -1;
+}
+
+int balloc(void){
+	char b[BLOCK_SIZE];
+
+	for(int i=0; i<sblock.dataBlockNum; i++){
+		if(bmap[i] == 0){
+			b_map[i] = 1;
+			memset(b, 0, BLOCK_SIZE);
+			bwrite(DEVICE_IMAGE, i+sblock.firstDataBlock, b);
+
+			return i;
+		}
+	}
+	return -1;
+}
+
+int ifree(int inode_id){
+	if(inode_id>sblock.numinodes || inode_id<0) return -1;
+
+	i_map[inode_id] = 0;
+
+	return 0;
+}
+
+int bfree(int block_id){
+	if(block_id>sblock.dataBlockNum || block_id<0) return -1;
+
+	b_map[block_id] = 0;
+
+	return 0;
+}
+
+int namei(char* fname){
+	for(int i=0; i<sblock.numinodes; i++){
+		if(!strcmp(inodes[i].name, fname)) return i;
+	}
+	return -1;
+}
+
+int bmap(int inode_id, int offset){
+	if(inode_id>sblock.numinodes) return -1;
+
+	if(offset<BLOCK_SIZE) return inodes[inode_id].directBlock;
+
+	return -1;
 }
