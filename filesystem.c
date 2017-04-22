@@ -219,6 +219,7 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes){
  * @return	0 if success, -1 otherwise.
  */
 int lseekFile(int fileDescriptor, int whence, long offset){
+
 	if(fileDescriptor<0) return -1;
 
 	if(whence == FS_SEEK_CUR){
