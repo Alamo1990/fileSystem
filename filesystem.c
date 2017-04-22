@@ -46,7 +46,7 @@ int mkFS(long deviceSize){
 	inodes = (inode*)calloc(sblock.numinodes, sizeof(inode));
 	inodes_x = (inode_x*)calloc(sblock.numinodes, sizeof(inode_x));
 
-	unmountFS();
+	//unmountFS();
 
 	return 0;
 }
@@ -57,14 +57,14 @@ int mkFS(long deviceSize){
  */
 int mountFS(void){
 	bread(DEVICE_IMAGE, 1, (char*)&sblock);
-
-	for(int i=0; i<sblock.inodeMapNumBlocks; i++)
+	int i;
+	for(i=0; i<sblock.inodeMapNumBlocks; i++)
 		bread(DEVICE_IMAGE, 2+i, (char*)i_map + i*BLOCK_SIZE);
 
-	for(int i=0; i<sblock.dataMapNumBlock; i++)
+	for(i=0; i<sblock.dataMapNumBlock; i++)
 		bread(DEVICE_IMAGE, 2+i+sblock.inodeMapNumBlocks, (char*)b_map + i*BLOCK_SIZE);
 
-	for(int i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
+	for(i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
 		bread(DEVICE_IMAGE, i+sblock.firstInode, (char*)inodes + i*BLOCK_SIZE);
 
 	return 0;
@@ -76,7 +76,8 @@ int mountFS(void){
  */
 int unmountFS(void){
 
-	for(int i=0; i<sblock.numinodes; i++)//REVIEW
+	int i;
+	for(i=0; i<sblock.numinodes; i++)//REVIEW
 		if(inodes_x[i].opened == 1)
 		inodes_x[i].opened = 0;
 			// return -1;
@@ -85,15 +86,15 @@ int unmountFS(void){
 	bwrite(DEVICE_IMAGE, 1, (char*)&sblock);
 
 	// To write the i-node map to disk
-	for (int i=0; i<sblock.inodeMapNumBlocks; i++)
+	for (i=0; i<sblock.inodeMapNumBlocks; i++)
 		bwrite(DEVICE_IMAGE, 2+i, (char*)i_map + i*BLOCK_SIZE) ;
 
 	// To write the block map to disk
-	for (int i=0; i<sblock.dataMapNumBlock; i++)
+	for (i=0; i<sblock.dataMapNumBlock; i++)
 		bwrite(DEVICE_IMAGE, 2+i+sblock.inodeMapNumBlocks, (char *)b_map + i*BLOCK_SIZE);
 
 	// To write the i-nodes to disk
-	for (int i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
+	for (i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
 		bwrite(DEVICE_IMAGE, i+sblock.firstInode, (char *)inodes + i*BLOCK_SIZE);
 
 	return 0;
@@ -139,9 +140,12 @@ int removeFile(char *fileName){
 
 	bfree(inodes[inode_id].directBlock);
 	memset(&(inodes[inode_id]), 0, sizeof(inode));
-	ifree(inode_id);
-
-	return -2;
+	int output = ifree(inode_id);
+	if (output==0){
+		return output;
+	} else {
+		return -2;
+	}
 }
 
 /*
@@ -247,7 +251,8 @@ int checkFile(char *fileName){
 *@return  the number of the inode alloc'd or -1 in case there is no free inodes
 */
 int ialloc(void){
-	for(int i=0; i<sblock.numinodes; i++){
+	int i;
+	for(i=0; i<sblock.numinodes; i++){
 		if(i_map[i] == 0){
 			i_map[i] = 1;
 			memset(&(inodes[i]), 0, sizeof(inode));
@@ -263,8 +268,8 @@ int ialloc(void){
 */
 int balloc(void){
 	char b[BLOCK_SIZE];
-	
-	for(int i=0; i<sblock.dataBlockNum; i++){
+	int i;
+	for(i=0; i<sblock.dataBlockNum; i++){
 		if(b_map[i] == 0){
 			b_map[i] = 1;
 			memset(b, 0, BLOCK_SIZE);
@@ -305,7 +310,8 @@ int bfree(int block_id){
 *@return  the number of the inode searched or -1 in case it was not found
 */
 int namei(char* fname){
-	for(int i=0; i<sblock.numinodes; i++){
+	int i;
+	for(i=0; i<sblock.numinodes; i++){
 		if(!strcmp(inodes[i].name, fname)) return i;
 	}
 	return -1;
