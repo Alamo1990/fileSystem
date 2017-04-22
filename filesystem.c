@@ -75,21 +75,21 @@ int mountFS(void){
  */
 int unmountFS(void){
 
-	for(int i=0; i<sblock.numinodes; i++){
+	for(int i=0; i<sblock.numinodes; i++)//REVIEW
 		if(inodes_x[i].opened == 1)
+		//inodes_x[i].opened = 0;
 			return -1;
-	}
 
 	// write sblock to disk
-	bwrite(DEVICE_IMAGE, 0, (char*)&sblock);
+	bwrite(DEVICE_IMAGE, 1, (char*)&sblock);
 
 	// To write the i-node map to disk
 	for (int i=0; i<sblock.inodeMapNumBlocks; i++)
-		bwrite(DEVICE_IMAGE, 1+i, (char*)i_map + i*BLOCK_SIZE) ;
+		bwrite(DEVICE_IMAGE, 2+i, (char*)i_map + i*BLOCK_SIZE) ;
 
 	// To write the block map to disk
 	for (int i=0; i<sblock.dataMapNumBlock; i++)
-		bwrite(DEVICE_IMAGE, 1+i+sblock.inodeMapNumBlocks, (char *)b_map + i*BLOCK_SIZE);
+		bwrite(DEVICE_IMAGE, 2+i+sblock.inodeMapNumBlocks, (char *)b_map + i*BLOCK_SIZE);
 
 	// To write the i-nodes to disk
 	for (int i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
@@ -104,14 +104,16 @@ int unmountFS(void){
 int createFile(char *fileName){
 	int b_id, inode_id;
 
+	if(namei(fileName)>0){printf("file already exists\n"); return -1;}//File already exists
+
 	inode_id = ialloc();
-	if(inode_id<0){
-		return inode_id;
-	}
+	if(inode_id<0) {printf("cannot alloc inode(%d)\n", inode_id);return -2;}
+
 	b_id = balloc();
 	if(b_id<0){
+		printf("cannot alloc block(%d)\n", b_id);
 		ifree(inode_id);
-		return b_id;
+		return -2;
 	}
 
 	inodes[inode_id].type = FILE;
@@ -119,6 +121,8 @@ int createFile(char *fileName){
 	inodes[inode_id].directBlock = b_id;
 	inodes_x[inode_id].position = 0;
 	inodes_x[inode_id].opened = 1;
+
+	printf("file ceated corrctly\n");
 
 	return 0;
 }
@@ -243,11 +247,12 @@ int checkFile(char *fileName){
 *@return  the number of the inode alloc'd or -1 in case there is no free inodes
 */
 int ialloc(void){
+	printf("numinodes: %d\n", sblock.numinodes);
 	for(int i=0; i<sblock.numinodes; i++){
+		printf("try to alloc %d, result: %d\n",i, i_map[i] );
 		if(i_map[i] == 0){
 			i_map[i] = 1;
 			memset(&(inodes[i]), 0, sizeof(inode));
-
 			return i;
 		}
 	}
