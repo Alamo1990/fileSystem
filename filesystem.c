@@ -94,7 +94,7 @@ int unmountFS(void){
 
 	int i;
 	for(i=0; i<sblock.numinodes; i++)
-		if(inodes_x[i].opened == 1) {printf("inode %d is still open\n", i);return -1;}
+		if(inodes_x[i].opened == 1) return -1;
 
 	// write sblock to disk
 	bwrite(DEVICE_IMAGE, 1, (char*)&sblock);
@@ -172,14 +172,14 @@ int removeFile(char *fileName){
 int openFile(char *fileName){
 	int inode_id;
 
-	if(checkFile(fileName)<0) return -2;//F6
-
 	inode_id = namei(fileName);
 	if(inode_id<0){
 		return -1;
 	} else{
 		inodes_x[inode_id].position = 0;
 		inodes_x[inode_id].opened = 1;
+
+		if(checkFile(fileName)<0) return -2;//F6
 
 		return inode_id;
 	}
@@ -245,11 +245,11 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes){
 	inodes_x[fileDescriptor].position += numBytes;
 	inodes[fileDescriptor].size += numBytes;
 
-	// unsigned char tbuffer[inodes[fileDescriptor].size];
-	//
-	// readFile(fileDescriptor, tbuffer, inodes[fileDescriptor].size);
-	//
-	// inodes[fileDescriptor].crc = CRC16((const unsigned char*) tbuffer, inodes[fileDescriptor].size);
+	unsigned char tbuffer[inodes[fileDescriptor].size];
+
+	readFile(fileDescriptor, tbuffer, inodes[fileDescriptor].size);
+
+	inodes[fileDescriptor].crc = CRC16((const unsigned char*) tbuffer, inodes[fileDescriptor].size);
 
 	return numBytes;
 }

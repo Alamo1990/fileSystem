@@ -32,6 +32,7 @@ void assertEquals(char* testName, int result, int expected){
 
 void assertStrEquals(char* testName, char* result, char* expected){
 	if(strcmp(result, expected)) {
+		printf("result: %s\nexpected: %s\n", result, expected);
 		fprintf(stdout, "%s%s%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST ", testName," ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
 		exit(-1);
 	}
@@ -39,7 +40,8 @@ void assertStrEquals(char* testName, char* result, char* expected){
 }
 
 void assertGreaterThan(char* testName, int result, int expected){
-	if(result > expected) {
+	if(result < expected) {
+		printf("result: %d\nexpected: %d\n", result, expected);
 		fprintf(stdout, "%s%s%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST ", testName," ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
 		exit(-1);
 	}
@@ -64,8 +66,12 @@ int main() {
 
 	assertEquals("checkFile1", checkFile("test.txt"), 0);
 
-	int fd1;
+	int fd1, fd2, fd3;
 	assertGreaterThan("openFile1", (fd1=openFile("test.txt")), 0);
+	assertGreaterThan("openFile2", (fd2=openFile("differentTest.txt")), 0);
+	assertGreaterThan("openFile3", (fd3=openFile("oneMoreTest.txt")), 0);
+	assertEquals("incorrect openFile", openFile("inexistantFile.txt"), -1);
+
 
 	assertEquals("writeFile1", writeFile(fd1, "This is a test text to test the functionality of write, lseek and read.", 72), 72);
 
@@ -77,6 +83,7 @@ int main() {
 	assertStrEquals("readFile1 buffer value", buff, "functionality of write, lseek and read.");
 
 	assertEquals("closeFile1", closeFile(fd1), 0);
+	assertEquals("closeFile2", closeFile(fd2), 0);
 
 	assertEquals("checkFile1 again", checkFile("test.txt"), 0);
 
@@ -84,6 +91,8 @@ int main() {
 
 	assertEquals("incorrect removeFile", removeFile("test.txt"), -1);
 
+	assertEquals("unmountFS", unmountFS(), -1);
+	assertEquals("closeFile3", closeFile(fd3), 0);
 	assertEquals("unmountFS", unmountFS(), 0);
 
 
