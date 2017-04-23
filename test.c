@@ -23,6 +23,23 @@
 
 void assertEquals(char* testName, int result, int expected){
 	if(result != expected) {
+		printf("result: %d\nexpected: %d\n", result, expected);
+		fprintf(stdout, "%s%s%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST ", testName," ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
+		exit(-1);
+	}
+	fprintf(stdout, "%s%s%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST ", testName," ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
+}
+
+void assertStrEquals(char* testName, char* result, char* expected){
+	if(strcmp(result, expected)) {
+		fprintf(stdout, "%s%s%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST ", testName," ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
+		exit(-1);
+	}
+	fprintf(stdout, "%s%s%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST ", testName," ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
+}
+
+void assertGreaterThan(char* testName, int result, int expected){
+	if(result > expected) {
 		fprintf(stdout, "%s%s%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST ", testName," ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
 		exit(-1);
 	}
@@ -31,149 +48,44 @@ void assertEquals(char* testName, int result, int expected){
 
 
 
-
 int main() {
-	int ret;
-	
-	///////
 
-	ret = mkFS(99999999);
-	if(ret != -1) {
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST incorrect mkFS ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST incorrect mkFS ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
+	assertEquals("incorrect mkFS", mkFS(99999999), -1);
 
-	///////
+	assertEquals("mkFS", mkFS(DEV_SIZE), 0);
 
-	ret = mkFS(DEV_SIZE);
-	if(ret != 0) {
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST mkFS ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST mkFS ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
+	assertEquals("mountFS", mountFS(), 0);
 
-	///////
+	assertEquals("createFile1", createFile("test.txt"), 0);
+	assertEquals("createFile exists", createFile("test.txt"), -1);
+	assertEquals("createFile large name", createFile("thisFileNameIsLongerThan32Characters.txt"), -2);
 
-	ret = mountFS();
-	if(ret != 0) {
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST mountFS ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST mountFS ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
+	assertEquals("checkFile1", checkFile("test.txt"), 0);
 
-	///////
+	int fd1;
+	assertGreaterThan("openFile1", (fd1=openFile("test.txt")), 0);
 
-	ret = checkFS();
-	if(ret != 0) {
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST checkFS ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST checkFS ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
+	assertEquals("writeFile1", writeFile(fd1, "This is a test text to test the functionality of write, lseek and read.", 72), 72);
 
-	///////
-
-	ret = createFile("test.txt");
-	if(ret != 0) {
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST createFile1 ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST createFile1 ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
-
-	///////
-
-	ret = checkFile("test.txt");
-	if(ret != 0) {
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST checkFile1 ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST checkFile1 ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
-
-	///////
-
-	int fd1 = openFile("test.txt");
-	if(fd1 > 0) {
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST openFile1 ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST openFile1 ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
-
-	///////
-
-	char* patata = "This is a test text to test the functionality of write, lseek and read.";
-	lseekFile(fd1, FS_SEEK_BEGIN, 0);
-	ret = writeFile(fd1, patata, 72);
-	if(ret != 72) {
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST writeFile1 ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST writeFile1 ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
-
-	///////
-
-	ret = lseekFile(fd1, FS_SEEK_END, 40);
-	if(ret != 0) {
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST lseekFile1 ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST lseekFile1 ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
-
-	///////
+	assertEquals("lseekFile1", lseekFile(fd1, FS_SEEK_END, 40), 0);
 
 	char buff[256];
-	ret = readFile(fd1, buff, 40);
-	if(ret != 40 || strcmp(buff,"functionality of write, lseek and read.")) {
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST readFile1 ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST readFile1 ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
+	assertEquals("readFile1 return value", readFile(fd1, buff, 40), 40);
 
-	///////
+	assertStrEquals("readFile1 buffer value", buff, "functionality of write, lseek and read.");
 
-	ret = closeFile(fd1);
-	if(ret != 0) {
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST closeFile1 ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST closeFile1 ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
+	assertEquals("closeFile1", closeFile(fd1), 0);
 
-	///////
+	assertEquals("checkFile1 again", checkFile("test.txt"), 0);
 
-	ret = checkFile("test.txt");
-	if(ret != 0) {
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST checkFile1 again ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST checkFile1 again ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
+	assertEquals("removeFile1", removeFile("test.txt"), 0);
 
-	///////
+	assertEquals("incorrect removeFile", removeFile("test.txt"), -1);
 
-	ret = removeFile("test.txt");
-	if(ret != 0) {
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST removeFile1 ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST removeFile1 ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
+	assertEquals("unmountFS", unmountFS(), 0);
 
-	///////
 
-	ret = removeFile("test.txt");
-	if(ret != -1) {
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST incorrect removeFile ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST incorrect removeFile ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
 
-	///////
-
-	ret = unmountFS();
-	if(ret != 0) {
-		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST unmountFS ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
-		return -1;
-	}
-	fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST unmountFS ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
-
-	///////
 
 	return 0;
 }

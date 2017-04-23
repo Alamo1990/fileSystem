@@ -48,7 +48,7 @@ int mkFS(long deviceSize){
 	b_map = (char*)calloc(sblock.dataBlockNum, sizeof(char));
 	inodes = (inode*)calloc(sblock.numinodes, sizeof(inode));
 	inodes_x = (inode_x*)calloc(sblock.numinodes, sizeof(inode_x));
-	
+
 	unsigned char buffer[BLOCK_SIZE];
 	bread(DEVICE_IMAGE, 0, (char*)&buffer);
 
@@ -86,7 +86,7 @@ int mountFS(void){
  * @return 	0 if success, -1 otherwise.
  */
 int unmountFS(void){
-	
+
 	unsigned char buffer[BLOCK_SIZE];
 	bread(DEVICE_IMAGE, 0, (char*)&buffer);
 
@@ -121,7 +121,8 @@ int unmountFS(void){
 int createFile(char *fileName){
 	int b_id, inode_id;
 
-	if(strlen(fileName)>32 || namei(fileName)>0) return -1;//File already exists
+	if(strlen(fileName)>32) return -2;
+	if(namei(fileName)!=-1) return -1;//File already exists
 
 	inode_id = ialloc();
 	if(inode_id<0) return -2;
@@ -189,7 +190,7 @@ int openFile(char *fileName){
  * @return	0 if success, -1 otherwise.
  */
 int closeFile(int fileDescriptor){
-	if(fileDescriptor<0) return -1;
+	if(fileDescriptor<0 || inodes_x[fileDescriptor].opened==0) return -1;
 
 	inodes_x[fileDescriptor].position = 0;
 	inodes_x[fileDescriptor].opened = 0;
@@ -289,9 +290,9 @@ int checkFS(void){
 	if(check == tempcrc){
 		sblock.crc = tempcrc;
 		return 0;
-	} else {
-		return -1;
 	}
+
+	return -1;
 }
 
 /*
@@ -319,9 +320,8 @@ int checkFile(char *fileName){
 	if(check == tempcrc){
 		inodes[fd].crc = tempcrc;
 		return 0;
-	} else {
-		return -1;
 	}
+	return -1;
 }
 
 
