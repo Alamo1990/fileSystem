@@ -23,13 +23,13 @@
  }superblock;
  typedef struct{
    unsigned int type; //FILE or DIRECTORY
-   char name[256]; //File or directory name
+   char name[32]; //File or directory name
    unsigned int inodesContent[256];  //type==dir.directory inode list
    unsigned int size;  //Current file size in bytes
    unsigned int directBlock; //direct block number
    unsigned int indirectBlock; //indirect block number
    uint16_t crc;
-   char padding[BLOCK_SIZE-260*sizeof(unsigned int)-256];  //Padding field to fill a block
+   char padding[BLOCK_SIZE-260*sizeof(unsigned int)-32*sizeof(char)];  //Padding field to fill a block
  }inode;
 
  typedef struct{

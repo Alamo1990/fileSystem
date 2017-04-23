@@ -31,18 +31,17 @@ int mkFS(long deviceSize){
 
 	int fd = open(DEVICE_IMAGE, O_RDONLY);
 	int size = lseek(fd, 0L, SEEK_END);
-	//printf("ddddddddd%d", size);
-	if(size > 2000*50 || size < 2000*25) return -1;
+	// printf("opened dev size: %d", size/1024);
+	if(size > 100*1024 || size < 50*1024) return -1;
 	if(deviceSize > size) return -1;//REVIEW
 
-
 	sblock.magicNum = 714916;//REVIEW: check values
+	sblock.inodeMapNumBlocks = 32;//REVIEW: check values
+	sblock.dataMapNumBlock = 128;//REVIEW: check values
 	sblock.numinodes = 64;//REVIEW: check values
-	sblock.firstInode = 2;//REVIEW: check values
-	sblock.firstDataBlock = 2;//REVIEW: check values
-	sblock.inodeMapNumBlocks = 48;//REVIEW: check values
-	sblock.dataBlockNum = 100;//REVIEW: check values
-	sblock.dataMapNumBlock = 100;//REVIEW: check values
+	sblock.firstInode = 162;//REVIEW: check values
+	sblock.dataBlockNum = 128;//REVIEW: check values
+	sblock.firstDataBlock = 226;//REVIEW: check values
 	sblock.deviceSize = deviceSize;
 
 	i_map = (char*)calloc(sblock.numinodes, sizeof(char));
@@ -60,10 +59,8 @@ int mkFS(long deviceSize){
  * @return 	0 if success, -1 otherwise.
  */
 int mountFS(void){
-	int error = bread(DEVICE_IMAGE, 1, (char*)&sblock);
-	if (error == -1){
-		return error;
-	}
+	if (bread(DEVICE_IMAGE, 1, (char*)&sblock) == -1) return -1;
+
 	int i;
 	for(i=0; i<sblock.inodeMapNumBlocks; i++)
 		bread(DEVICE_IMAGE, 2+i, (char*)i_map + i*BLOCK_SIZE);
@@ -79,6 +76,8 @@ int mountFS(void){
 
 	sblock.crc = CRC16((const unsigned char*)buffer, BLOCK_SIZE);
 
+	if(checkFS()<0) return -1;//F5: the file system must be checked at least on mount
+
 	return 0;
 }
 
@@ -89,8 +88,8 @@ int mountFS(void){
 int unmountFS(void){
 
 	int i;
-	for(i=0; i<sblock.numinodes; i++)//REVIEW
-		if(inodes_x[i].opened == 1) return -1;
+	for(i=0; i<sblock.numinodes; i++)
+		if(inodes_x[i].opened == 1) {printf("inode %d is still open\n", i);return -1;}
 
 	// write sblock to disk
 	bwrite(DEVICE_IMAGE, 1, (char*)&sblock);
@@ -117,7 +116,7 @@ int unmountFS(void){
 int createFile(char *fileName){
 	int b_id, inode_id;
 
-	if(namei(fileName)>0) return -1;//File already exists
+	if(strlen(fileName)>32 || namei(fileName)>0) return -1;//File already exists
 
 	inode_id = ialloc();
 	if(inode_id<0) return -2;
@@ -131,7 +130,7 @@ int createFile(char *fileName){
 	inodes[inode_id].type = FILE;
 	strcpy(inodes[inode_id].name, fileName);
 	inodes[inode_id].directBlock = b_id;
-	inodes_x[inode_id].position = 0;
+	inodes_x[inode_id].position = 0;//seek pointer to beggining as stated on F2
 	inodes_x[inode_id].opened = 1;
 
 	unsigned char buffer[inodes[inode_id].size];
@@ -167,16 +166,17 @@ int removeFile(char *fileName){
 int openFile(char *fileName){
 	int inode_id;
 
+	if(checkFile(fileName)<0) return -2;//F6
+
 	inode_id = namei(fileName);
-	if(inode_id==-1){
-		return inode_id;
-	} else if (inode_id>=0){
+	if(inode_id<0){
+		return -1;
+	} else{
 		inodes_x[inode_id].position = 0;
 		inodes_x[inode_id].opened = 1;
 
 		return inode_id;
 	}
-	return -2;	
 }
 
 /*
