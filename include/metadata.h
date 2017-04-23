@@ -24,7 +24,7 @@
    unsigned int size;  //Current file size in bytes
    unsigned int directBlock; //direct block number
    uint16_t crc;
-   char padding[];  //Padding field to fill a block
+   char padding[2];  //Padding field to fill a block
  }inode;
 
  typedef struct{

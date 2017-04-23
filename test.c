@@ -51,7 +51,7 @@ void assertGreaterThan(char* testName, int result, int expected){
 
 
 int main() {
-	char buff[256];
+	char buff[256];bzero(buff, 256);
 	int fd1, fd2, fd3;
 
 	assertEquals("incorrect mkFS", mkFS(99999999), -1);
@@ -73,7 +73,6 @@ int main() {
 	assertGreaterThan("openFile3", (fd3=openFile("oneMoreTest.txt")), 0);
 	assertEquals("incorrect openFile", openFile("inexistantFile.txt"), -1);
 
-
 	assertEquals("writeFile1", writeFile(fd1, "This is a test text to test the functionality of write, lseek and read.", 77), 77);
 	assertEquals("incorrect writeFile", writeFile(fd2, "This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.",
 	 2055), -1);
@@ -82,7 +81,6 @@ int main() {
 	assertEquals("lseekFile2 BEGIN", lseekFile(fd2, FS_SEEK_BEGIN, 20), 0);
 	assertEquals("writeFile2 again", writeFile(fd2, "This is another test text to test the functionality of write, lseek and read.", 78), 78);
 	assertEquals("lseekFile2 CUR", lseekFile(fd2, FS_SEEK_CUR, -98), 0);
-	bzero(buff, 256);
 	assertEquals("readFile2 return value", readFile(fd2, buff, 98), 98);
 	assertStrEquals("readFile2 buffer value", buff, "This is another testThis is another test text to test the functionality of write, lseek and read.");
 
@@ -102,6 +100,8 @@ int main() {
 	assertEquals("unmountFS", unmountFS(), -1);
 	assertEquals("closeFile3", closeFile(fd3), 0);
 	assertEquals("unmountFS", unmountFS(), 0);
+
+	assertEquals("re-mountFS", mountFS(), 0);
 
 	return 0;
 }
