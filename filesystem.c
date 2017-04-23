@@ -48,6 +48,11 @@ int mkFS(long deviceSize){
 	b_map = (char*)calloc(sblock.dataBlockNum, sizeof(char));
 	inodes = (inode*)calloc(sblock.numinodes, sizeof(inode));
 	inodes_x = (inode_x*)calloc(sblock.numinodes, sizeof(inode_x));
+	
+	unsigned char buffer[BLOCK_SIZE];
+	bread(DEVICE_IMAGE, 0, (char*)&buffer);
+
+	sblock.crc = CRC16((const unsigned char*)buffer, BLOCK_SIZE);
 
 	unmountFS();
 
@@ -71,11 +76,6 @@ int mountFS(void){
 	for(i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
 		bread(DEVICE_IMAGE, i+sblock.firstInode, (char*)inodes + i*BLOCK_SIZE);
 
-	unsigned char buffer[BLOCK_SIZE];
-	bread(DEVICE_IMAGE, 0, (char*)&buffer);
-
-	sblock.crc = CRC16((const unsigned char*)buffer, BLOCK_SIZE);
-
 	if(checkFS()<0) return -1;//F5: the file system must be checked at least on mount
 
 	return 0;
@@ -86,6 +86,11 @@ int mountFS(void){
  * @return 	0 if success, -1 otherwise.
  */
 int unmountFS(void){
+	
+	unsigned char buffer[BLOCK_SIZE];
+	bread(DEVICE_IMAGE, 0, (char*)&buffer);
+
+	sblock.crc = CRC16((const unsigned char*)buffer, BLOCK_SIZE);
 
 	int i;
 	for(i=0; i<sblock.numinodes; i++)
@@ -297,7 +302,7 @@ int checkFS(void){
  */
 int checkFile(char *fileName){
 
-	int fd = openFile(fileName);
+	int fd = namei(fileName);
 
 	if(fd<0){
 		return -2;
