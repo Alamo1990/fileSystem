@@ -287,8 +287,6 @@ int checkFS(void){
 	} else {
 		return -1;
 	}
-
-	return -2;
 }
 
 /*
@@ -319,8 +317,6 @@ int checkFile(char *fileName){
 	} else {
 		return -1;
 	}
-
-	return -2;
 }
 
 

@@ -6,6 +6,7 @@
  * @date	01/03/2017
  */
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include "include/filesystem.h"
@@ -20,10 +21,20 @@
 #define N_BLOCKS	25						// Number of blocks in the device
 #define DEV_SIZE 	N_BLOCKS * BLOCK_SIZE	// Device size, in bytes
 
+void assertEquals(char* testName, int result, int expected){
+	if(result != expected) {
+		fprintf(stdout, "%s%s%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST ", testName," ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
+		exit(-1);
+	}
+	fprintf(stdout, "%s%s%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST ", testName," ", ANSI_COLOR_GREEN, "SUCCESS\n", ANSI_COLOR_RESET);
+}
+
+
+
 
 int main() {
 	int ret;
-
+	
 	///////
 
 	ret = mkFS(99999999);
