@@ -197,6 +197,7 @@ int closeFile(int fileDescriptor){
 
 	unsigned char tempBuffer[inodes[fileDescriptor].size];
 
+	lseekFile(fileDescriptor, FS_SEEK_BEGIN, 0);
 	readFile(fileDescriptor, tempBuffer, inodes[fileDescriptor].size);
 
 	inodes[fileDescriptor].crc = CRC16((const unsigned char*) tempBuffer, inodes[fileDescriptor].size);
@@ -243,6 +244,12 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes){
 
 	inodes_x[fileDescriptor].position += numBytes;
 	inodes[fileDescriptor].size += numBytes;
+
+	// unsigned char tbuffer[inodes[fileDescriptor].size];
+	//
+	// readFile(fileDescriptor, tbuffer, inodes[fileDescriptor].size);
+	//
+	// inodes[fileDescriptor].crc = CRC16((const unsigned char*) tbuffer, inodes[fileDescriptor].size);
 
 	return numBytes;
 }
@@ -303,19 +310,19 @@ int checkFile(char *fileName){
 
 	int fd = namei(fileName);
 
-	if(fd<0){
-		return -2;
-	}
+	if(fd<0) return -2;
 
 	uint16_t check = inodes[fd].crc;
 	uint16_t tempcrc;
 	unsigned char buffer[inodes[fd].size];
 
 	if (inodes[fd].size >= 0){
+		lseekFile(fd, FS_SEEK_BEGIN, 0);
 		readFile(fd, buffer, inodes[fd].size);
 	}
 
 	tempcrc = CRC16((const unsigned char*) buffer, inodes[fd].size);
+
 
 	if(check == tempcrc){
 		inodes[fd].crc = tempcrc;

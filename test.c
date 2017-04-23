@@ -59,6 +59,8 @@ int main() {
 	assertEquals("createFile1", createFile("test.txt"), 0);
 	assertEquals("createFile exists", createFile("test.txt"), -1);
 	assertEquals("createFile large name", createFile("thisFileNameIsLongerThan32Characters.txt"), -2);
+	assertEquals("createFile2", createFile("differentTest.txt"), 0);
+	assertEquals("createFile3", createFile("oneMoreTest.txt"), 0);
 
 	assertEquals("checkFile1", checkFile("test.txt"), 0);
 
