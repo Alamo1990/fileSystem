@@ -17,3 +17,5 @@ int bfree(int block_id);
 int namei(char* fname);
 
 int bmap(int inode_id, int offset);
+
+void updateCRC(int fd);
