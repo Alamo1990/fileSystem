@@ -29,7 +29,7 @@ inode_x* inodes_x;
  */
 int mkFS(long deviceSize){
 
-	int fd = open(DEVICE_IMAGE, O_RDWR);
+	int fd = open(DEVICE_IMAGE, O_RDONLY);
 	int size = lseek(fd, 0L, SEEK_END);
 	// printf("opened dev size: %d",  size/1024);
 	if(size > 100*1024 || size < 50*1024) return -1;
