@@ -76,6 +76,7 @@ int main() {
 								assertEquals("writeFile1", writeFile(fd1, "This is a test text to test the functionality of write, lseek and read.", 77), 77);
 								assertEquals("incorrect writeFile", writeFile(fd2, "This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.This is a text longer than 2048 characters and should give an error.	This is a text longer than 2048 characters and should give an error.",
 																																																						2055), -1);
+
 								assertEquals("writeFile3", writeFile(fd3, "This is another test text to test the functionality of write, lseek and read.", 78), 78);
 								assertEquals("lseekFile3 BEGIN", lseekFile(fd3, FS_SEEK_BEGIN, 20), 0);
 								assertEquals("writeFile3 again", writeFile(fd3, "This is another test text to test the functionality of write, lseek and read.", 78), 78);
@@ -106,19 +107,15 @@ int main() {
 								assertEquals("createFile1", createFile("removeFile.txt"), 0);
 								assertEquals("writeFile1", writeFile(fd1, "Test to check file system removes corrctly.", 44), 44);
 								assertGreaterThan("openFile1", (fd1=openFile("removeFile.txt")), 0);
-								assertGreaterThan("openFile3", (fd3=openFile("oneMoreTest.txt")), 0);
 								assertEquals("removeFile2", removeFile("differentTest.txt"), 0);
 								assertEquals("lseekFile1 BEGIN", lseekFile(fd1, FS_SEEK_BEGIN, 0), 0);
 								assertEquals("lseekFile3 BEGIN", lseekFile(fd3, FS_SEEK_BEGIN, 0), 0);
 								bzero(buff, 256);
 								assertEquals("readFile1 return value", readFile(fd1, buff, 44), 44);
 								assertStrEquals("readFile1 buffer value", buff, "Test to check file system removes corrctly.");
-								bzero(buff, 256);
-								assertEquals("readFile3 return value", readFile(fd3, buff, 98), 98);
-								assertStrEquals("readFile3 buffer value", buff, "This is another testThis is another test text to test the functionality of write, lseek and read.");
+
 
 								assertEquals("closeFile1", closeFile(fd1), 0);
-								assertEquals("closeFile3", closeFile(fd3), 0);
 								assertEquals("re-unmountFS", unmountFS(), 0);
 
 								return 0;

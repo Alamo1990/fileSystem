@@ -30,15 +30,15 @@ inode_x* inodes_x;
 int mkFS(long deviceSize){
 
 								int fd = open(DEVICE_IMAGE, O_RDONLY);
-								int size = lseek(fd, 0, SEEK_END);
+								int size = lseek(fd, 0L, SEEK_END);
+								// printf("opened dev size: %d", size/1024);
+								if(size > 100*1024 || size < 50*1024) return -1;
+								if(deviceSize > size) return -1;  //REVIEW
 
-								if(size > 100*1024 || size < 50*1024) { printf("Incorrect device size\n"); return -1; }
-								if(deviceSize > size) return -1;
-
-								sblock.firstInode = 1;
-								sblock.numinodes = 64;
-								sblock.dataBlockNum = deviceSize/BLOCK_SIZE - 5;
-								sblock.firstDataBlock = sblock.numinodes;
+								sblock.numinodes = 64; //REVIEW: check values
+								sblock.firstInode = 2; //REVIEW: check values
+								sblock.dataBlockNum = 64; //REVIEW: check values
+								sblock.firstDataBlock = 66; //REVIEW: check values
 								sblock.deviceSize = deviceSize;
 
 								i_map = (char*)calloc(sblock.numinodes, sizeof(char));
@@ -46,13 +46,12 @@ int mkFS(long deviceSize){
 								inodes = (inode*)calloc(sblock.numinodes, sizeof(inode));
 								inodes_x = (inode_x*)calloc(sblock.numinodes, sizeof(inode_x));
 
-								unmountFS();
-
 								unsigned char buffer[BLOCK_SIZE];
 								bread(DEVICE_IMAGE, 0, (char*)&buffer);
 
-								sblock.crc = CRC64((const unsigned char*)buffer, BLOCK_SIZE);
+								sblock.crc = CRC16((const unsigned char*)buffer, BLOCK_SIZE);
 
+								unmountFS();
 
 								return 0;
 }
@@ -62,13 +61,11 @@ int mkFS(long deviceSize){
  * @return  0 if success, -1 otherwise.
  */
 int mountFS(void){
-								//Read sblock
-								if (bread(DEVICE_IMAGE, 0, (char*)&sblock) == -1) return -1;
+								if (bread(DEVICE_IMAGE, 1, (char*)&sblock) == -1) return -1;
 
 								int i;
-								//read inodes
 								for(i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
-																bread(DEVICE_IMAGE, i+sblock.firstInode, (char*)inodes + i*sizeof(inode));
+																bread(DEVICE_IMAGE, i+sblock.firstInode, (char*)inodes + i*BLOCK_SIZE);
 
 								if(checkFS()<0) return -1;  //F5: the file system must be checked at least on mount
 
@@ -84,18 +81,18 @@ int unmountFS(void){
 								unsigned char buffer[BLOCK_SIZE];
 								bread(DEVICE_IMAGE, 0, (char*)&buffer);
 
-								sblock.crc = CRC64((const unsigned char*)buffer, BLOCK_SIZE);
+								sblock.crc = CRC16((const unsigned char*)buffer, BLOCK_SIZE);
 
 								int i;
 								for(i=0; i<sblock.numinodes; i++)
 																if(inodes_x[i].opened == 1) return -1;
 
 								// write sblock to disk
-								bwrite(DEVICE_IMAGE, 0, (char*)&sblock);
+								bwrite(DEVICE_IMAGE, 1, (char*)&sblock);
 
 								// write the i-nodes to disk
 								for (i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
-																bwrite(DEVICE_IMAGE, i+sblock.firstInode, (char *)inodes + i*sizeof(inode));
+																bwrite(DEVICE_IMAGE, i+sblock.firstInode, (char *)inodes + i*BLOCK_SIZE);
 
 								return 0;
 }
@@ -255,13 +252,13 @@ int lseekFile(int fileDescriptor, int whence, long offset){
  * @brief  Verifies the integrity of the file system metadata.
  * @return  0 if the file system is correct, -1 if the file system is corrupted, -2 in case of error.
  */
-int checkFS(void){
-
+int checkFS(void){ //TODO
+								uint16_t tempcrc;
 								unsigned char buffer[BLOCK_SIZE];
 
 								bread(DEVICE_IMAGE, 0, (char*)&buffer);
 
-								uint64_t tempcrc = CRC64((const unsigned char*) buffer, BLOCK_SIZE);
+								tempcrc = CRC16((const unsigned char*) buffer, BLOCK_SIZE);
 
 								if(sblock.crc == tempcrc) return 0;
 
@@ -278,11 +275,12 @@ int checkFile(char *fileName){
 
 								if(fd<0) return -2;
 
+								uint16_t tempcrc;
 								char buffer[BLOCK_SIZE];
 
 								bread(DEVICE_IMAGE, inodes[fd].directBlock, buffer);
 
-								uint64_t tempcrc = CRC64((const unsigned char*) buffer, BLOCK_SIZE);
+								tempcrc = CRC16((const unsigned char*) buffer, BLOCK_SIZE);
 
 								if(inodes[fd].crc == tempcrc) return 0;
 
@@ -369,5 +367,5 @@ int namei(char* fname){
 void updateCRC(int fd){
 								char tbuffer[BLOCK_SIZE];
 								bread(DEVICE_IMAGE, inodes[fd].directBlock, tbuffer);
-								inodes[fd].crc = CRC64((const unsigned char*) tbuffer, BLOCK_SIZE);
+								inodes[fd].crc = CRC16((const unsigned char*) tbuffer, BLOCK_SIZE);
 }
