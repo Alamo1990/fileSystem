@@ -92,4 +92,6 @@ int checkFS(void);
  */
 int checkFile(char *fileName);
 
+int fixFile(char *fileName);
+
 #endif
