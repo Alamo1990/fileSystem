@@ -25,18 +25,20 @@ inode_x* inodes_x;
 
 /*
  * @brief 	Generates the proper file system structure in a storage device, as designed by the student.
- * @return 	0 if success, -1 otherwise.
+ * @return 	0 if success, -1 otherwise. 
  */
 int mkFS(long deviceSize){
 
 	int fd = open(DEVICE_IMAGE, O_RDONLY);
 	int size = lseek(fd, 0L, SEEK_END);
-	// printf("opened dev size: %d", size/1024);
+	// printf("opened dev size: %d",  size/1024);
 	if(size > 100*1024 || size < 50*1024) return -1;
-	if(deviceSize > size) return -1;//REVIEW
+	if(deviceSize > size) return -1;//REVIEW 
 
 	sblock.magicNum = 714916;//REVIEW: check values
-	sblock.numinodes = 24;//REVIEW: check values
+	sblock.inodeMapNumBlocks = 32;//REVIEW: check values
+	sblock.dataMapNumBlock = 128;//REVIEW: check values 
+	sblock.numinodes = 64;//REVIEW: check values 
 	sblock.firstInode = 162;//REVIEW: check values
 	sblock.dataBlockNum = 128;//REVIEW: check values
 	sblock.firstDataBlock = 226;//REVIEW: check values
@@ -50,7 +52,7 @@ int mkFS(long deviceSize){
 	unsigned char buffer[BLOCK_SIZE];
 	bread(DEVICE_IMAGE, 0, (char*)&buffer);
 
-	sblock.crc = CRC16((const unsigned char*)buffer, BLOCK_SIZE);
+	sblock.crc = CRC64((const unsigned char*)buffer, BLOCK_SIZE);
 
 	unmountFS();
 
@@ -65,6 +67,12 @@ int mountFS(void){
 	if (bread(DEVICE_IMAGE, 1, (char*)&sblock) == -1) return -1;
 
 	int i;
+	for(i=0; i<sblock.inodeMapNumBlocks; i++)
+		bread(DEVICE_IMAGE, 2+i, (char*)i_map + i*BLOCK_SIZE);
+
+	for(i=0; i<sblock.dataMapNumBlock; i++)
+		bread(DEVICE_IMAGE, 2+i+sblock.inodeMapNumBlocks, (char*)b_map + i*BLOCK_SIZE);
+
 	for(i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
 		bread(DEVICE_IMAGE, i+sblock.firstInode, (char*)inodes + i*BLOCK_SIZE);
 
@@ -82,16 +90,24 @@ int unmountFS(void){
 	unsigned char buffer[BLOCK_SIZE];
 	bread(DEVICE_IMAGE, 0, (char*)&buffer);
 
-	sblock.crc = CRC16((const unsigned char*)buffer, BLOCK_SIZE);
+	sblock.crc = CRC64((const unsigned char*)buffer, BLOCK_SIZE);
 
 	int i;
 	for(i=0; i<sblock.numinodes; i++)
-		if(inodes_x[i].opened == 1) return -1;
+		if(inodes_x[i].opened == 1) {printf("inode %d is still open\n", i);return -1;}
 
 	// write sblock to disk
 	bwrite(DEVICE_IMAGE, 1, (char*)&sblock);
 
-	// write the i-nodes to disk
+	// To write the i-node map to disk
+	for (i=0; i<sblock.inodeMapNumBlocks; i++)
+		bwrite(DEVICE_IMAGE, 2+i, (char*)i_map + i*BLOCK_SIZE) ;
+
+	// To write the block map to disk
+	for (i=0; i<sblock.dataMapNumBlock; i++)
+		bwrite(DEVICE_IMAGE, 2+i+sblock.inodeMapNumBlocks, (char *)b_map + i*BLOCK_SIZE);
+
+	// To write the i-nodes to disk
 	for (i=0; i<(sblock.numinodes*sizeof(inode)/BLOCK_SIZE); i++)
 		bwrite(DEVICE_IMAGE, i+sblock.firstInode, (char *)inodes + i*BLOCK_SIZE);
 
@@ -117,12 +133,17 @@ int createFile(char *fileName){
 		return -2;
 	}
 
+	inodes[inode_id].type = FILE;
 	strcpy(inodes[inode_id].name, fileName);
-	inodes[inode_id].directBlock = b_id;
-	inodes_x[inode_id].position = 0;//seek pointer to beggining as stated on F2
-	inodes_x[inode_id].opened = 0;
+	inodes[inode_id].directBlock = 2+b_id;
+	inodes_x[inode_id].position = 0;//seek pointer to beggining as stated on F2 
+	inodes_x[inode_id].opened = 1;
 
-	updateCRC(inode_id);
+	unsigned char buffer[inodes[inode_id].size];
+
+	readFile(inode_id, buffer, 0);
+
+	inodes[inode_id].crc = CRC64((const unsigned char*) buffer, inodes[inode_id].size);
 
 	return 0;
 }
@@ -145,11 +166,13 @@ int removeFile(char *fileName){
 }
 
 /*
- * @brief	Opens an existing file.
+ * @brief	Opens an existing file. 
  * @return	The file descriptor if possible, -1 if file does not exist, -2 in case of error..
  */
 int openFile(char *fileName){
 	int inode_id;
+
+	if(checkFile(fileName)<0) return -2;//F6
 
 	inode_id = namei(fileName);
 	if(inode_id<0){
@@ -158,15 +181,13 @@ int openFile(char *fileName){
 		inodes_x[inode_id].position = 0;
 		inodes_x[inode_id].opened = 1;
 
-		if(checkFile(fileName)<0) return -2;//F6
-
 		return inode_id;
 	}
 }
 
 /*
  * @brief	Closes a file.
- * @return	0 if success, -1 otherwise.
+ * @return	0 if success, -1 otherwise. 
  */
 int closeFile(int fileDescriptor){
 	if(fileDescriptor<0 || inodes_x[fileDescriptor].opened==0) return -1;
@@ -174,7 +195,12 @@ int closeFile(int fileDescriptor){
 	inodes_x[fileDescriptor].position = 0;
 	inodes_x[fileDescriptor].opened = 0;
 
-	updateCRC(fileDescriptor);
+	unsigned char tempBuffer[inodes[fileDescriptor].size];
+
+	lseekFile(fileDescriptor, FS_SEEK_BEGIN, 0);
+	readFile(fileDescriptor, tempBuffer, inodes[fileDescriptor].size);
+
+	inodes[fileDescriptor].crc = CRC64((const unsigned char*) tempBuffer, inodes[fileDescriptor].size);
 
 	return 0;
 }
@@ -185,14 +211,14 @@ int closeFile(int fileDescriptor){
  */
 int readFile(int fileDescriptor, void *buffer, int numBytes){
 	char b[BLOCK_SIZE];
-	// printf("pos: %d\n", inodes_x[fileDescriptor].position);
-	if((inodes_x[fileDescriptor].position + numBytes) > 2048) return -1;
+	int b_id;
 
 	if(inodes_x[fileDescriptor].position + numBytes>inodes[fileDescriptor].size)
 		numBytes = inodes[fileDescriptor].size - inodes_x[fileDescriptor].position;
 	if(numBytes<=0) return -1;
 
-	bread(DEVICE_IMAGE, inodes[fileDescriptor].directBlock, b);
+	b_id = bmap(fileDescriptor, inodes_x[fileDescriptor].position);
+	bread(DEVICE_IMAGE, b_id, b);
 	memmove(buffer, b+inodes_x[fileDescriptor].position, numBytes);
 	inodes_x[fileDescriptor].position += numBytes;
 
@@ -205,21 +231,26 @@ int readFile(int fileDescriptor, void *buffer, int numBytes){
  */
 int writeFile(int fileDescriptor, void *buffer, int numBytes){
 	char b[BLOCK_SIZE];
-
-	if((inodes_x[fileDescriptor].position + numBytes) > 2048) return -1;
+	int b_id;
 
 	if(inodes_x[fileDescriptor].position+numBytes>BLOCK_SIZE)
 		numBytes = BLOCK_SIZE - inodes_x[fileDescriptor].position;
 	if(numBytes<=0) return -1;
 
-	bread(DEVICE_IMAGE, inodes[fileDescriptor].directBlock, b);
+	b_id = bmap(fileDescriptor, inodes_x[fileDescriptor].position);
+
+	bread(DEVICE_IMAGE, b_id, b);
 	memmove(b+inodes_x[fileDescriptor].position, buffer, numBytes);
-	bwrite(DEVICE_IMAGE, inodes[fileDescriptor].directBlock, b);
+	bwrite(DEVICE_IMAGE, b_id, b);
 
 	inodes_x[fileDescriptor].position += numBytes;
 	inodes[fileDescriptor].size += numBytes;
 
-	updateCRC(fileDescriptor);
+	// unsigned char tbuffer[inodes[fileDescriptor].size];
+	// 
+	// readFile(fileDescriptor, tbuffer, inodes[fileDescriptor].size); 
+	//
+	// inodes[fileDescriptor].crc = CRC64((const unsigned char*) tbuffer, inodes[fileDescriptor].size);
 
 	return numBytes;
 }
@@ -253,15 +284,21 @@ int lseekFile(int fileDescriptor, int whence, long offset){
  * @brief 	Verifies the integrity of the file system metadata.
  * @return 	0 if the file system is correct, -1 if the file system is corrupted, -2 in case of error.
  */
-int checkFS(void){//TODO
-	uint16_t tempcrc;
+int checkFS(void){
+
+	uint64_t check = sblock.crc;
+	uint64_t tempcrc;
+	sblock.crc = 0;
 	unsigned char buffer[BLOCK_SIZE];
 
 	bread(DEVICE_IMAGE, 0, (char*)&buffer);
 
-	tempcrc = CRC16((const unsigned char*) buffer, BLOCK_SIZE);
+	tempcrc = CRC64((const unsigned char*) buffer, BLOCK_SIZE);
 
-	if(sblock.crc == tempcrc) return 0;
+	if(check == tempcrc){
+		sblock.crc = tempcrc;
+		return 0;
+	}
 
 	return -1;
 }
@@ -276,14 +313,71 @@ int checkFile(char *fileName){
 
 	if(fd<0) return -2;
 
-	uint16_t tempcrc;
-	char buffer[BLOCK_SIZE];
+	uint64_t check = inodes[fd].crc;
+	uint64_t tempcrc;
+	unsigned char buffer[inodes[fd].size];
 
-	bread(DEVICE_IMAGE, inodes[fd].directBlock, buffer);
+	if (inodes[fd].size >= 0){
+		lseekFile(fd, FS_SEEK_BEGIN, 0);
+		readFile(fd, buffer, inodes[fd].size);
+	}
 
-	tempcrc = CRC16((const unsigned char*) buffer, BLOCK_SIZE);
+	tempcrc = CRC64((const unsigned char*) buffer, inodes[fd].size);
 
-	if(inodes[fd].crc == tempcrc) return 0;
+
+	if(check == tempcrc){
+		inodes[fd].crc = tempcrc;
+		return 0;
+	}
+	return -1;
+}
+
+
+/*
+ * @brief 	Tries to fix the corruption of a file in SOME cases where a chunk of 8 bits of data or less is corrupted.
+ * @return 	0 if we believe the file is fixed, -1 if we believe the file can't be fixed.
+ */
+int fixFile(char *fileName){
+
+	int fd = namei(fileName);
+
+	if(fd<0) return -2;
+
+	uint64_t check = inodes[fd].crc;
+	uint64_t tempcrc;
+	unsigned char buffer[inodes[fd].size];
+
+	if (inodes[fd].size >= 0){
+		lseekFile(fd, FS_SEEK_BEGIN, 0);
+		readFile(fd, buffer, inodes[fd].size);
+	}
+
+	unsigned char actual, temp = 0;
+	int position = 0;
+	while (position<inodes[fd].size){
+		actual = buffer[position];
+		temp = 0;
+		buffer[position] = temp;
+		tempcrc = CRC64((const unsigned char*) buffer, inodes[fd].size);
+		if(check == tempcrc){
+			inodes[fd].crc = tempcrc;
+			writeFile(fd, buffer, inodes[fd].size);
+			return 0;
+		}
+		temp++;
+		while (temp>0){
+			buffer[position] = temp;
+			tempcrc = CRC64((const unsigned char*) buffer, inodes[fd].size);
+			if(check == tempcrc){
+				inodes[fd].crc = tempcrc;
+				writeFile(fd, buffer, inodes[fd].size);
+				return 0;
+			}
+		temp++;
+		}
+		buffer[position] = actual;
+		position++;
+	}
 
 	return -1;
 }
@@ -362,11 +456,22 @@ int namei(char* fname){
 }
 
 /*
-*@brief  updates the CRC
-*@return  None
+*@brief  gets the inode block
+*@return  the number of the clock thet is thge inodes direct block or -1 in case the inode does not extist
 */
-void updateCRC(int fd){
-	char tbuffer[BLOCK_SIZE];
-	bread(DEVICE_IMAGE, inodes[fd].directBlock, tbuffer);
-	inodes[fd].crc = CRC16((const unsigned char*) tbuffer, BLOCK_SIZE);
+int bmap(int inode_id, int offset){
+	int b[BLOCK_SIZE/4];
+	// check if inode_id is valid
+	if (inode_id > sblock.numinodes) return -1;
+	// check if the offset is in the direct block
+	if (offset < BLOCK_SIZE)return inodes[inode_id].directBlock;
+
+	//check if the ofset is in the indirect block
+	if (offset < BLOCK_SIZE*BLOCK_SIZE/4) {
+		bread(DEVICE_IMAGE, inodes[inode_id].indirectBlock, (char*)b);
+		offset = (offset - BLOCK_SIZE)/BLOCK_SIZE;
+		return b[offset] ;
+	}
+
+	return -1;
 }

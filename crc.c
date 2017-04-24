@@ -225,6 +225,7 @@ uint32_t CRC32(const unsigned char* buffer, unsigned int length)
 	return (uint32_t) (crc32(crc32(0L, Z_NULL, 0), buffer, length) & 0xFFFFFFFF);
 }
 
+
 /*
  * @brief	CRC64 implementation based on Redis' CRC64 variant with "Jones" coefficients and init value of 0.
  *
