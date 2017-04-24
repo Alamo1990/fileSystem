@@ -361,6 +361,7 @@ int fixFile(char *fileName){
 		tempcrc = CRC64((const unsigned char*) buffer, inodes[fd].size);
 		if(check == tempcrc){
 			inodes[fd].crc = tempcrc;
+			writeFile(fd, buffer, inodes[fd].size);
 			return 0;
 		}
 		temp++;
@@ -369,6 +370,7 @@ int fixFile(char *fileName){
 			tempcrc = CRC64((const unsigned char*) buffer, inodes[fd].size);
 			if(check == tempcrc){
 				inodes[fd].crc = tempcrc;
+				writeFile(fd, buffer, inodes[fd].size);
 				return 0;
 			}
 		temp++;
