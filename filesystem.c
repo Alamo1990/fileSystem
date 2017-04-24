@@ -250,7 +250,7 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes){
 	// 
 	// readFile(fileDescriptor, tbuffer, inodes[fileDescriptor].size); 
 	//
-	// inodes[fileDescriptor].crc = CRC16((const unsigned char*) tbuffer, inodes[fileDescriptor].size);
+	// inodes[fileDescriptor].crc = CRC64((const unsigned char*) tbuffer, inodes[fileDescriptor].size);
 
 	return numBytes;
 }
